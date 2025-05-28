@@ -24,9 +24,22 @@ async function setupCamera() {
 }
 
 async function loadModels() {
-  await faceapi.nets.tinyFaceDetector.loadFromUri('/models')
-  await faceapi.nets.faceLandmark68Net.loadFromUri('/models')
-  await faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+  try {
+    console.log("Loading Tiny Face Detector...");
+    await faceapi.nets.tinyFaceDetector.loadFromUri('/models/tiny_face_detector');
+    console.log("Tiny Face Detector loaded.");
+
+    console.log("Loading Face Landmark 68...");
+    await faceapi.nets.faceLandmark68Net.loadFromUri('/models/face_landmark_68');
+    console.log("Face Landmark 68 loaded.");
+
+    console.log("Loading Face Recognition Net...");
+    await faceapi.nets.faceRecognitionNet.loadFromUri('/models/face_recognition');
+    console.log("Face Recognition Net loaded.");
+  } catch (err) {
+    console.error("Model loading error:", err);
+    error.value = 'Failed to load one or more models.'
+  }
 }
 
 onMounted(async () => {
