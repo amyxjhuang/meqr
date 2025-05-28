@@ -1,13 +1,12 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import FaceCapture from './components/FaceCapture.vue'
 </script>
 
 <template>
   <div>
-    <HelloWorld />
+    <FaceCapture />
   </div>
 </template>
 
 <style scoped>
-/* No additional styles needed here, all in HelloWorld.vue */
 </style>
