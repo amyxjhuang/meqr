@@ -18,9 +18,11 @@ MODELS=(
 )
 
 for FILE in "${MODELS[@]}"; do
+  DIR=$(dirname "$FILE")
+  mkdir -p "$DIR"
   if [ ! -f "$FILE" ]; then
     echo "Downloading $FILE..."
-    curl -L -O "$BASE_URL/$FILE"
+    curl -L -o "$FILE" "$BASE_URL/$FILE"
   else
     echo "$FILE already exists, skipping."
   fi
