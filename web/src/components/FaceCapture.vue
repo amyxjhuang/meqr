@@ -11,14 +11,14 @@ const processing = ref(false)
 async function setupCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: 'environment' } },
+      video: { facingMode: 'user' },
       audio: false,
     })
     videoRef.value.srcObject = stream
     await videoRef.value.play()
     loading.value = false
   } catch (e) {
-    error.value = 'Could not access the back camera.'
+    error.value = 'Could not access the camera: ' + e
     loading.value = false
   }
 }
@@ -66,7 +66,6 @@ async function getFaceEmbedding() {
 
 <template>
   <div class="container">
-    <h2>Face Embedding Capture</h2>
     <div v-if="loading" class="status">Loading camera...</div>
     <div v-else-if="error" class="status error">{{ error }}</div>
     <video
