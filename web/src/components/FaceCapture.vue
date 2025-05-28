@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import './FaceCapture.css'
+import { ref, onMounted, onUnmounted } from 'vue'
 import * as faceapi from 'face-api.js'
 
 const videoRef = ref(null)
@@ -7,6 +8,15 @@ const embedding = ref(null)
 const loading = ref(true)
 const error = ref('')
 const processing = ref(false)
+const faceBox = ref(null)
+const faceDetected = ref(false)
+const showCaptureBtn = ref(false)
+const videoWidth = ref(0)
+const videoDisplaySize = ref({ width: 0, height: 0 })
+const videoNaturalSize = ref({ width: 0, height: 0 })
+const smoothedBtnPos = ref({ x: 0, y: 0, width: 0, height: 0 })
+const smoothingFactor = 0.15 // Lower = smoother/slower
+let detectLoop = null
 
 async function setupCamera() {
   try {
@@ -42,10 +52,66 @@ async function loadModels() {
   }
 }
 
+function updateVideoSizes() {
+  if (videoRef.value) {
+    videoDisplaySize.value = {
+      width: videoRef.value.offsetWidth,
+      height: videoRef.value.offsetHeight
+    }
+    videoNaturalSize.value = {
+      width: videoRef.value.videoWidth,
+      height: videoRef.value.videoHeight
+    }
+    videoWidth.value = videoRef.value.offsetWidth // for backward compatibility
+  }
+}
+
 onMounted(async () => {
   await loadModels()
   await setupCamera()
+  startFaceDetection()
+  updateVideoSizes()
+  window.addEventListener('resize', updateVideoSizes)
 })
+
+onUnmounted(() => {
+  if (detectLoop) cancelAnimationFrame(detectLoop)
+  window.removeEventListener('resize', updateVideoSizes)
+})
+
+async function startFaceDetection() {
+  if (!videoRef.value) return
+  const detect = async () => {
+    if (!videoRef.value || videoRef.value.readyState !== 4) {
+      faceBox.value = null
+      faceDetected.value = false
+      showCaptureBtn.value = false
+      detectLoop = requestAnimationFrame(detect)
+      return
+    }
+    const result = await faceapi.detectSingleFace(
+      videoRef.value,
+      new faceapi.TinyFaceDetectorOptions()
+    )
+    if (result && result.box) {
+      faceBox.value = result.box
+      faceDetected.value = true
+      showCaptureBtn.value = true
+      // Smoothing logic
+      const target = getScaledAndMirroredBox(result.box)
+      smoothedBtnPos.value.x = smoothedBtnPos.value.x + (target.x - smoothedBtnPos.value.x) * smoothingFactor
+      smoothedBtnPos.value.y = smoothedBtnPos.value.y + (target.y - smoothedBtnPos.value.y) * smoothingFactor
+      smoothedBtnPos.value.width = smoothedBtnPos.value.width + (target.width - smoothedBtnPos.value.width) * smoothingFactor
+      smoothedBtnPos.value.height = smoothedBtnPos.value.height + (target.height - smoothedBtnPos.value.height) * smoothingFactor
+    } else {
+      faceBox.value = null
+      faceDetected.value = false
+      showCaptureBtn.value = false
+    }
+    detectLoop = requestAnimationFrame(detect)
+  }
+  detectLoop = requestAnimationFrame(detect)
+}
 
 async function getFaceEmbedding() {
   if (!videoRef.value) return
@@ -62,24 +128,83 @@ async function getFaceEmbedding() {
   }
   processing.value = false
 }
+
+function getScaledAndMirroredBox(box) {
+  const disp = videoDisplaySize.value
+  const nat = videoNaturalSize.value
+  if (!disp.width || !disp.height || !nat.width || !nat.height) return box
+  const scaleX = disp.width / nat.width
+  const scaleY = disp.height / nat.height
+  const scaled = {
+    x: box.x * scaleX,
+    y: box.y * scaleY,
+    width: box.width * scaleX,
+    height: box.height * scaleY
+  }
+  // Mirror horizontally
+  return {
+    ...scaled,
+    x: disp.width - scaled.x - scaled.width
+  }
+}
+
+function handleCaptureFace() {
+  getFaceEmbedding().then(() => {
+    if (embedding.value) {
+      console.log('Face embedding:', embedding.value)
+    }
+  })
+}
 </script>
 
 <template>
   <div class="container">
     <div v-if="loading" class="status">Loading camera...</div>
     <div v-else-if="error" class="status error">{{ error }}</div>
-    <video
-      v-show="!loading && !error"
-      ref="videoRef"
-      autoplay
-      playsinline
-      class="video-feed"
-    ></video>
+    <div class="video-container">
+      <video
+        v-show="!loading && !error"
+        ref="videoRef"
+        autoplay
+        playsinline
+        class="video-feed"
+        @loadedmetadata="updateVideoSizes"
+      ></video>
+      <transition name="face-overlay-fade">
+        <div
+          v-if="faceDetected && faceBox && videoDisplaySize.width"
+          class="face-overlay"
+          :style="{
+            left: getScaledAndMirroredBox(faceBox).x + 'px',
+            top: getScaledAndMirroredBox(faceBox).y + 'px',
+            width: getScaledAndMirroredBox(faceBox).width + 'px',
+            height: getScaledAndMirroredBox(faceBox).height + 'px',
+          }"
+        ></div>
+      </transition>
+      <transition name="capture-btn-fade">
+        <button
+          v-if="showCaptureBtn && faceBox && videoDisplaySize.width"
+          class="capture-face-btn"
+          :style="{
+            left: (smoothedBtnPos.x + smoothedBtnPos.width / 2) + 'px',
+            top: (smoothedBtnPos.y + smoothedBtnPos.height + 16) + 'px',
+            transform: 'translateX(-50%)',
+            position: 'absolute',
+            zIndex: 10
+          }"
+          @click="handleCaptureFace"
+        >
+          Capture Face
+        </button>
+      </transition>
+    </div>
     <button
       v-if="!loading && !error"
       class="capture-btn"
       :disabled="processing"
       @click="getFaceEmbedding"
+      style="display: none;"
     >
       {{ processing ? 'Processing...' : 'Get Face Embedding' }}
     </button>
@@ -89,62 +214,3 @@ async function getFaceEmbedding() {
     </div>
   </div>
 </template>
-
-<style scoped>
-.container {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: 1em;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-family: system-ui, sans-serif;
-}
-.video-feed {
-  max-width: 100vw;
-  max-height: 100vh;
-  aspect-ratio: 3/4;
-  border-radius: 12px;
-  background: #222;
-  margin-bottom: 1em;
-  transform: scaleX(-1);
-  object-fit: cover;
-}
-.capture-btn {
-  width: 100%;
-  padding: 1em;
-  font-size: 1.2em;
-  border: none;
-  border-radius: 8px;
-  background: #42b883;
-  color: white;
-  margin-bottom: 1em;
-  transition: background 0.2s;
-}
-.capture-btn:active {
-  background: #368f6e;
-}
-.status {
-  margin: 1em 0;
-  color: #888;
-}
-.status.error {
-  color: #d33;
-}
-.embedding-box {
-  width: 100%;
-  background: #f6f6f6;
-  border-radius: 8px;
-  padding: 0.5em;
-  font-size: 0.9em;
-  word-break: break-all;
-}
-@media (max-width: 600px) {
-  .container {
-    padding: 0.5em;
-  }
-  .video-feed {
-    max-width: 100vw;
-  }
-}
-</style>
