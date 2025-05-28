@@ -101,12 +101,14 @@ async function getFaceEmbedding() {
   font-family: system-ui, sans-serif;
 }
 .video-feed {
-  width: 100%;
-  max-width: 350px;
+  max-width: 100vw;
+  max-height: 100vh;
   aspect-ratio: 3/4;
   border-radius: 12px;
   background: #222;
   margin-bottom: 1em;
+  transform: scaleX(-1);
+  object-fit: cover;
 }
 .capture-btn {
   width: 100%;
