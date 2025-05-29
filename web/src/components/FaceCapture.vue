@@ -35,9 +35,9 @@ async function setupCamera() {
 
 async function loadModels() {
   try {
-    console.log("Loading Tiny Face Detector...");
-    await faceapi.nets.tinyFaceDetector.loadFromUri('/models/tiny_face_detector');
-    console.log("Tiny Face Detector loaded.");
+    console.log("Loading SSD Mobilenet V1...");
+    await faceapi.nets.ssdMobilenetv1.loadFromUri('/models/ssd_mobilenetv1');
+    console.log("SSD Mobilenet V1 loaded.");
 
     console.log("Loading Face Landmark 68...");
     await faceapi.nets.faceLandmark68Net.loadFromUri('/models/face_landmark_68');
@@ -45,7 +45,7 @@ async function loadModels() {
 
     console.log("Loading Face Recognition Net...");
     await faceapi.nets.faceRecognitionNet.loadFromUri('/models/face_recognition');
-    console.log("Face Recognition Net loaded.");
+    console.log('Face Recognition Net loaded:', faceapi.nets.faceRecognitionNet.isLoaded);
   } catch (err) {
     console.error("Model loading error:", err);
     error.value = 'Failed to load one or more models.'
@@ -91,7 +91,7 @@ async function startFaceDetection() {
     }
     const result = await faceapi.detectSingleFace(
       videoRef.value,
-      new faceapi.TinyFaceDetectorOptions()
+      new faceapi.SsdMobilenetv1Options()
     )
     if (result && result.box) {
       faceBox.value = result.box
@@ -118,10 +118,12 @@ async function getFaceEmbedding() {
   processing.value = true
   const detections = await faceapi.detectSingleFace(
     videoRef.value,
-    new faceapi.TinyFaceDetectorOptions()
+    new faceapi.SsdMobilenetv1Options()
   ).withFaceLandmarks().withFaceDescriptor()
   if (detections && detections.descriptor) {
+    console.log(detections)
     embedding.value = Array.from(detections.descriptor)
+    console.log(embedding)
   } else {
     embedding.value = null
     error.value = 'No face detected.'
