@@ -29,9 +29,9 @@
 }
 .face-overlay {
   position: absolute;
-  border: 3px solid #42b883;
-  border-radius: 20px;
-  box-shadow: 0 0 16px 4px #42b88355;
+  border: 2px solid #42b883;
+  /* border-radius: 20px; */
+  /* box-shadow: 0 0 16px 4px #42b88355; */
   pointer-events: none;
   transition: all 0.3s cubic-bezier(.4,2,.6,1);
   z-index: 9;

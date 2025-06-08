@@ -17,6 +17,8 @@ const videoNaturalSize = ref({ width: 0, height: 0 })
 const smoothedBtnPos = ref({ x: 0, y: 0, width: 0, height: 0 })
 const smoothingFactor = 0.15 // Lower = smoother/slower
 let detectLoop = null
+const testImageRef = ref(null)
+const testImageEmbedding = ref(null)
 
 async function setupCamera() {
   try {
@@ -37,7 +39,8 @@ async function loadModels() {
   try {
     console.log("Loading SSD Mobilenet V1...");
     await faceapi.nets.ssdMobilenetv1.loadFromUri('/models/ssd_mobilenetv1');
-    console.log("SSD Mobilenet V1 loaded.");
+    console.log("SSD Mobilenet V1 loaded.", faceapi.nets.ssdMobilenetv1.isLoaded);
+    console.log("SSD Mobilenet V1:", faceapi.nets.ssdMobilenetv1);
 
     console.log("Loading Face Landmark 68...");
     await faceapi.nets.faceLandmark68Net.loadFromUri('/models/face_landmark_68');
@@ -116,10 +119,15 @@ async function startFaceDetection() {
 async function getFaceEmbedding() {
   if (!videoRef.value) return
   processing.value = true
+  const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.1 })
+
   const detections = await faceapi.detectSingleFace(
     videoRef.value,
-    new faceapi.SsdMobilenetv1Options()
+    options
   ).withFaceLandmarks().withFaceDescriptor()
+
+  // const descriptor = await faceapi.computeFaceDescriptor(videoRef.value);
+  // console.log("descriptor", descriptor)
   if (detections && detections.descriptor) {
     console.log(detections)
     embedding.value = Array.from(detections.descriptor)
@@ -140,7 +148,7 @@ function getScaledAndMirroredBox(box) {
   const scaled = {
     x: box.x * scaleX,
     y: box.y * scaleY,
-    width: box.width * scaleX,
+    width: box.width * scaleX * 2,
     height: box.height * scaleY
   }
   // Mirror horizontally
@@ -151,11 +159,55 @@ function getScaledAndMirroredBox(box) {
 }
 
 function handleCaptureFace() {
-  getFaceEmbedding().then(() => {
+  getFaceEmbeddingFromBackend().then(() => {
     if (embedding.value) {
       console.log('Face embedding:', embedding.value)
     }
   })
+}
+
+async function getDescriptorFromTestImage() {
+  if (!testImageRef.value) return
+  const detection = await faceapi
+    .detectSingleFace(testImageRef.value, new faceapi.SsdMobilenetv1Options())
+    .withFaceLandmarks()
+    .withFaceDescriptor()
+  if (detection && detection.descriptor) {
+    testImageEmbedding.value = Array.from(detection.descriptor)
+    console.log('Descriptor:', testImageEmbedding.value)
+    return testImageEmbedding.value
+  } else {
+    testImageEmbedding.value = null
+    error.value = 'No face detected in test.jpg.'
+    return null
+  }
+}
+
+async function getFaceEmbeddingFromBackend() {
+  if (!videoRef.value || !faceBox.value) return;
+
+  // 1. Draw the face region to a canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = faceBox.value.width;
+  canvas.height = faceBox.value.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(
+    videoRef.value,
+    faceBox.value.x, faceBox.value.y, faceBox.value.width, faceBox.value.height,
+    0, 0, faceBox.value.width, faceBox.value.height
+  );
+
+  // 2. Convert to base64
+  const dataUrl = canvas.toDataURL('image/jpeg');
+
+  // 3. Send to backend
+  const response = await fetch('http://localhost:5000/face-embedding', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: dataUrl })
+  });
+  const result = await response.json();
+  // result.embedding contains the embedding array
 }
 </script>
 
@@ -205,7 +257,7 @@ function handleCaptureFace() {
       v-if="!loading && !error"
       class="capture-btn"
       :disabled="processing"
-      @click="getFaceEmbedding"
+      @click="getFaceEmbeddingFromBackend"
       style="display: none;"
     >
       {{ processing ? 'Processing...' : 'Get Face Embedding' }}

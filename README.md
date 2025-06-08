@@ -17,3 +17,8 @@ npm run build
 ```
 
    npm run deploy
+
+To run the backend: 
+```
+uvicorn app:app --reload
+```
