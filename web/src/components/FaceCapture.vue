@@ -185,29 +185,55 @@ async function getDescriptorFromTestImage() {
 
 async function getFaceEmbeddingFromBackend() {
   if (!videoRef.value || !faceBox.value) return;
+  
+  processing.value = true;
+  error.value = '';
 
-  // 1. Draw the face region to a canvas
-  const canvas = document.createElement('canvas');
-  canvas.width = faceBox.value.width;
-  canvas.height = faceBox.value.height;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(
-    videoRef.value,
-    faceBox.value.x, faceBox.value.y, faceBox.value.width, faceBox.value.height,
-    0, 0, faceBox.value.width, faceBox.value.height
-  );
+  try {
+    // 1. Draw the face region to a canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = faceBox.value.width;
+    canvas.height = faceBox.value.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(
+      videoRef.value,
+      faceBox.value.x, faceBox.value.y, faceBox.value.width, faceBox.value.height,
+      0, 0, faceBox.value.width, faceBox.value.height
+    );
 
-  // 2. Convert to base64
-  const dataUrl = canvas.toDataURL('image/jpeg');
+    // 2. Convert to base64
+    const dataUrl = canvas.toDataURL('image/jpeg');
 
-  // 3. Send to backend
-  const response = await fetch('http://localhost:5000/face-embedding', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: dataUrl })
-  });
-  const result = await response.json();
-  // result.embedding contains the embedding array
+    // 3. Send to backend
+    const response = await fetch('http://localhost:5001/face-embedding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.error) {
+      error.value = result.error;
+      embedding.value = null;
+    } else if (result.embedding) {
+      embedding.value = result.embedding;
+      console.log('Face embedding from backend:', embedding.value);
+    } else {
+      error.value = 'No embedding received from backend';
+      embedding.value = null;
+    }
+  } catch (err) {
+    console.error('Error getting face embedding:', err);
+    error.value = 'Failed to get face embedding: ' + err.message;
+    embedding.value = null;
+  } finally {
+    processing.value = false;
+  }
 }
 </script>
 
