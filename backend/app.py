@@ -1,6 +1,7 @@
 import db  # This imports your db.py functions
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from deepface import DeepFace
 import base64
@@ -37,8 +38,6 @@ async def face_embedding(data: ImageData):
         return {"embedding": embedding}
     except Exception as e:
         return {"error": str(e)}
-    
-app = FastAPI()
 
 @app.post("/create_url/")
 def create_url(face_key: str, long_url: str):
