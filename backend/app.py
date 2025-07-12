@@ -8,6 +8,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 import numpy as np
+import os
 
 app = FastAPI()
 
@@ -19,6 +20,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def root():
+    return {"message": "MEQR Backend is running!"}
 
 class ImageData(BaseModel):
     image: str  # base64 data URL
@@ -37,13 +42,22 @@ async def face_embedding(data: ImageData):
         embedding = embedding_obj[0]["embedding"]
         return {"embedding": embedding}
     except Exception as e:
+        print(f"Error in face embedding: {e}")  # Debug log
         return {"error": str(e)}
+
+@app.get("/face-embedding")
+async def face_embedding_get():
+    return {"message": "GET method not supported. Use POST."}
 
 @app.post("/create_url/")
 def create_url(face_key: str, long_url: str):
     try:
         db.insert_url_mapping(face_key, long_url)
-        return {"face_url": f"http://localhost:8000/{face_key}"}
+        # Use environment variable for base URL or default to localhost
+        base_url = os.getenv("VERCEL_URL", "http://localhost:8000")
+        if base_url.startswith("http://"):
+            base_url = base_url.replace("http://", "https://")
+        return {"face_url": f"{base_url}/{face_key}"}
     except Exception as e:
         raise HTTPException(status_code=400, detail="Key already exists or invalid input.")
 
