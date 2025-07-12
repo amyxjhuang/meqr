@@ -13,22 +13,32 @@ def init_db():
                     user_id TEXT NOT NULL,
                     face_key TEXT UNIQUE NOT NULL,
                     face_embedding TEXT NOT NULL,
+                    url TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
 
-def insert_face_embedding(face_key: str, face_embedding: str):
+def insert_face_embedding(face_key: str, face_embedding: str, url: str = None, user_id: str = "default"):
     with closing(sqlite3.connect(DB_NAME)) as conn:
         with conn:
             conn.execute(
-                'INSERT INTO face_embeddings (face_key, face_embedding) VALUES (?, ?)',
-                (face_key, face_embedding)
+                'INSERT INTO face_embeddings (face_key, face_embedding, url, user_id) VALUES (?, ?, ?, ?)',
+                (face_key, face_embedding, url, user_id)
             )
 
 def get_face_embedding_by_key(face_key: str) -> str | None:
     with closing(sqlite3.connect(DB_NAME)) as conn:
         cur = conn.execute(
             'SELECT face_embedding FROM face_embeddings WHERE face_key = ?',
+            (face_key,)
+        )
+        row = cur.fetchone()
+        return row[0] if row else None
+
+def get_url_by_face_key(face_key: str) -> str | None:
+    with closing(sqlite3.connect(DB_NAME)) as conn:
+        cur = conn.execute(
+            'SELECT url FROM face_embeddings WHERE face_key = ?',
             (face_key,)
         )
         row = cur.fetchone()

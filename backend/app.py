@@ -31,6 +31,7 @@ class ImageData(BaseModel):
 
 class FaceEmbeddingData(BaseModel):
     face_embedding: str  # JSON string of face embedding
+    url: str = None  # URL to store with the face embedding
 
 @app.post("/face-embedding")
 async def face_embedding(data: ImageData):
@@ -70,10 +71,16 @@ def store_face_embedding(data: FaceEmbeddingData):
         import hashlib
         face_key = hashlib.md5(data.face_embedding.encode()).hexdigest()[:8]
         
-        # Store the face embedding
-        db.insert_face_embedding(face_key, data.face_embedding)
+        # Store the face embedding with optional URL
+        db.insert_face_embedding(face_key, data.face_embedding, data.url)
         
-        return {"face_key": face_key, "message": "Face embedding stored successfully", "already_exists": False}
+        response_data = {
+            "face_key": face_key, 
+            "url": data.url,
+            "message": "Face embedding stored successfully", 
+            "already_exists": False
+        }
+        return response_data
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -93,6 +100,17 @@ def get_face_embedding(face_key: str):
             return {"face_key": face_key, "face_embedding": embedding}
         else:
             raise HTTPException(status_code=404, detail="Face key not found")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/url/{face_key}")
+def get_url(face_key: str):
+    try:
+        url = db.get_url_by_face_key(face_key)
+        if url:
+            return {"face_key": face_key, "url": url}
+        else:
+            raise HTTPException(status_code=404, detail="URL not found for this face key")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
