@@ -70,7 +70,7 @@ def store_face_embedding(data: FaceEmbeddingData):
         # Generate a unique key based on the face embedding hash
         import hashlib
         face_key = hashlib.md5(data.face_embedding.encode()).hexdigest()[:8]
-        
+        print("face_key", face_key, "data.url", data.url)
         # Store the face embedding with optional URL
         db.insert_face_embedding(face_key, data.face_embedding, data.url)
         

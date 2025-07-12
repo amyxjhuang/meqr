@@ -19,6 +19,7 @@ def init_db():
             ''')
 
 def insert_face_embedding(face_key: str, face_embedding: str, url: str = None, user_id: str = "default"):
+    print("face_key", face_key, "url", url, "user_id", user_id)
     with closing(sqlite3.connect(DB_NAME)) as conn:
         with conn:
             conn.execute(
