@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from deepface import DeepFace
 import base64
+import json
 from io import BytesIO
 from PIL import Image
 import numpy as np
@@ -28,6 +29,9 @@ async def root():
 class ImageData(BaseModel):
     image: str  # base64 data URL
 
+class FaceEmbeddingData(BaseModel):
+    face_embedding: str  # JSON string of face embedding
+
 @app.post("/face-embedding")
 async def face_embedding(data: ImageData):
     try:
@@ -49,22 +53,44 @@ async def face_embedding(data: ImageData):
 async def face_embedding_get():
     return {"message": "GET method not supported. Use POST."}
 
-@app.post("/create_url/")
-def create_url(face_key: str, long_url: str):
+@app.post("/store-face-embedding")
+def store_face_embedding(data: FaceEmbeddingData):
     try:
-        db.insert_url_mapping(face_key, long_url)
-        # Use environment variable for base URL or default to localhost
-        base_url = os.getenv("VERCEL_URL", "http://localhost:8000")
-        if base_url.startswith("http://"):
-            base_url = base_url.replace("http://", "https://")
-        return {"face_url": f"{base_url}/{face_key}"}
+        # Generate a unique key based on the face embedding hash
+        import hashlib
+        face_key = hashlib.md5(data.face_embedding.encode()).hexdigest()[:8]
+        
+        # Store the face embedding
+        db.insert_face_embedding(face_key, data.face_embedding)
+        
+        return {"face_key": face_key, "message": "Face embedding stored successfully"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Key already exists or invalid input.")
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/{face_key}")
-def redirect_to_url(face_key: str):
-    long_url = db.get_long_url(face_key)
-    if long_url:
-        return RedirectResponse(long_url)
-    else:
-        raise HTTPException(status_code=404, detail="URL not found.")
+@app.get("/face-keys")
+def get_face_keys():
+    try:
+        keys = db.get_all_face_keys()
+        return {"face_keys": keys}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/face-embedding/{face_key}")
+def get_face_embedding(face_key: str):
+    try:
+        embedding = db.get_face_embedding_by_key(face_key)
+        if embedding:
+            return {"face_key": face_key, "face_embedding": embedding}
+        else:
+            raise HTTPException(status_code=404, detail="Face key not found")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# URL functionality will be added later
+# @app.get("/{face_key}")
+# def redirect_to_url(face_key: str):
+#     long_url = db.get_long_url(face_key)
+#     if long_url:
+#         return RedirectResponse(long_url)
+#     else:
+#         raise HTTPException(status_code=404, detail="URL not found.")

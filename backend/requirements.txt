@@ -4,3 +4,4 @@ pillow
 deepface
 python-multipart
 tf-keras
+scikit-learn
