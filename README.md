@@ -1,9 +1,10 @@
 # MEQR - Face-Based URL Shortener
+<video src="https://github.com/user-attachments/assets/0bce7aac-14cc-4343-8804-c2b7d66fa64e"> </ video> 
+
 My process: https://amyxjhuang.notion.site/MeQR-Find-My-Website-20c449fa8f6f80509b9dcda00ab93412?pvs=74 
 
 
 
-<video src="https://github.com/user-attachments/assets/0bce7aac-14cc-4343-8804-c2b7d66fa64e" />
 
 
 MEQR creates URLs based on your face embedding
