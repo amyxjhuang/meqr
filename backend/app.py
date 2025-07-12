@@ -121,9 +121,12 @@ def check_face_exists(data: FaceEmbeddingData):
         existing_face = db.find_matching_face(data.face_embedding, threshold=0.6)
         
         if existing_face:
+            # Get the URL associated with this face
+            url = db.get_url_by_face_key(existing_face)
             return {
                 "exists": True,
                 "face_key": existing_face,
+                "url": url,
                 "message": "Face found in database"
             }
         else:
