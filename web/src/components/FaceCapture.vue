@@ -2,6 +2,7 @@
 import './FaceCapture.css'
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as faceapi from 'face-api.js'
+// import { backendUrl } from '../config.js'
 
 const videoRef = ref(null)
 const embedding = ref(null)
@@ -19,6 +20,9 @@ const smoothingFactor = 0.15 // Lower = smoother/slower
 let detectLoop = null
 const testImageRef = ref(null)
 const testImageEmbedding = ref(null)
+const faceExistsMessage = ref('')
+const showUrlInput = ref(false)
+const urlToMap = ref('')
 
 async function setupCamera() {
   try {
@@ -158,28 +162,166 @@ function getScaledAndMirroredBox(box) {
   }
 }
 
-function handleCaptureFace() {
-  getFaceEmbeddingFromBackend().then(() => {
-    if (embedding.value) {
-      console.log('Face embedding:', embedding.value)
+// handleCaptureFace function removed - now handled by handleGoButton
+
+async function storeFaceEmbedding() {
+  if (!embedding.value) {
+    error.value = 'No face embedding available. Please capture a face first.'
+    return
+  }
+  
+      try {
+      const response = await fetch('http://127.0.0.1:5001/store-face-embedding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        face_embedding: JSON.stringify(embedding.value)
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
-  })
+    
+    const result = await response.json()
+    console.log('Face embedding result:', result)
+    
+    if (result.already_exists) {
+      console.log('Face already exists with key:', result.face_key)
+    } else {
+      console.log('New face stored with key:', result.face_key)
+    }
+    
+    return result
+  } catch (err) {
+    console.error('Error storing face embedding:', err)
+    error.value = 'Failed to store face embedding: ' + err.message
+  }
 }
 
-async function getDescriptorFromTestImage() {
-  if (!testImageRef.value) return
-  const detection = await faceapi
-    .detectSingleFace(testImageRef.value, new faceapi.SsdMobilenetv1Options())
-    .withFaceLandmarks()
-    .withFaceDescriptor()
-  if (detection && detection.descriptor) {
-    testImageEmbedding.value = Array.from(detection.descriptor)
-    console.log('Descriptor:', testImageEmbedding.value)
-    return testImageEmbedding.value
-  } else {
-    testImageEmbedding.value = null
-    error.value = 'No face detected in test.jpg.'
-    return null
+async function checkFaceExists() {
+  if (!embedding.value) {
+    error.value = 'No face embedding available. Please capture a face first.'
+    return
+  }
+  console.log("embedding.value", embedding.value)
+  try {
+    const response = await fetch('http://127.0.0.1:5001/check-face-exists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        face_embedding: JSON.stringify(embedding.value)
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const result = await response.json()
+    console.log('Face exists check:', result)
+    
+    if (result.exists) {
+      console.log('Face found with key:', result.face_key)
+      
+      // If there's a URL associated with this face, redirect to it
+      if (result.url) {
+        console.log('Redirecting to URL:', result.url)
+        window.location.href = result.url
+        return result
+      }
+    } else {
+      console.log('Face not found in database')
+    }
+    
+    return result
+  } catch (err) {
+    console.error('Error checking face existence:', err)
+    error.value = 'Failed to check face existence: ' + err.message
+  }
+}
+
+async function handleGoButton() {
+  if (!videoRef.value || !faceBox.value) {
+    error.value = 'No face detected. Please position your face in the camera.'
+    return
+  }
+  
+  processing.value = true
+  faceExistsMessage.value = ''
+  showUrlInput.value = false
+  
+  try {
+    // First, capture the face embedding
+    await getFaceEmbeddingFromBackend()
+    
+    if (!embedding.value) {
+      error.value = 'Failed to capture face embedding. Please try again.'
+      return
+    }
+    
+    // Then check if the face already exists
+    const result = await checkFaceExists()
+    
+    if (result && result.exists) {
+      faceExistsMessage.value = 'Face already exists in database.'
+      showUrlInput.value = false
+    } else {
+      faceExistsMessage.value = ''
+      showUrlInput.value = true
+    }
+  } catch (err) {
+    error.value = 'Failed to process face: ' + err.message
+  } finally {
+    processing.value = false
+  }
+}
+
+async function handleSubmitUrl() {
+  if (!urlToMap.value || !embedding.value) {
+    error.value = 'Please enter a URL and capture a face first.'
+    return
+  }
+  
+  processing.value = true
+  
+  try {
+    // Store the face embedding with URL in one call
+    const response = await fetch('http://127.0.0.1:5001/store-face-embedding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        face_embedding: JSON.stringify(embedding.value),
+        url: urlToMap.value
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const result = await response.json()
+    console.log('Face and URL stored:', result)
+    
+    if (result.already_exists) {
+      faceExistsMessage.value = 'Face already exists in database.'
+      showUrlInput.value = false
+    } else {
+      // Clear the form
+      urlToMap.value = ''
+      showUrlInput.value = false
+      faceExistsMessage.value = 'URL mapping created successfully!'
+      
+      // Clear the message after 3 seconds
+      setTimeout(() => {
+        faceExistsMessage.value = ''
+      }, 3000)
+    }
+  } catch (err) {
+    console.error('Error storing face and URL:', err)
+    error.value = 'Failed to create URL mapping: ' + err.message
+  } finally {
+    processing.value = false
   }
 }
 
@@ -205,7 +347,7 @@ async function getFaceEmbeddingFromBackend() {
     const dataUrl = canvas.toDataURL('image/jpeg');
 
     // 3. Send to backend
-    const response = await fetch('http://localhost:5001/face-embedding', {
+    const response = await fetch('http://127.0.0.1:5001/face-embedding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: dataUrl })
@@ -222,7 +364,7 @@ async function getFaceEmbeddingFromBackend() {
       embedding.value = null;
     } else if (result.embedding) {
       embedding.value = result.embedding;
-      console.log('Face embedding from backend:', embedding.value);
+      // console.log('Face embedding from backend:', embedding.value);
     } else {
       error.value = 'No embedding received from backend';
       embedding.value = null;
@@ -262,35 +404,44 @@ async function getFaceEmbeddingFromBackend() {
           }"
         ></div>
       </transition>
-      <transition name="capture-btn-fade">
-        <button
-          v-if="showCaptureBtn && faceBox && videoDisplaySize.width"
-          class="capture-face-btn"
-          :style="{
-            left: (smoothedBtnPos.x + smoothedBtnPos.width / 2) + 'px',
-            top: (smoothedBtnPos.y + smoothedBtnPos.height + 16) + 'px',
-            transform: 'translateX(-50%)',
-            position: 'absolute',
-            zIndex: 10
-          }"
-          @click="handleCaptureFace"
-        >
-          Capture Face
-        </button>
-      </transition>
     </div>
+    
+    <!-- Go button to capture face and proceed -->
     <button
-      v-if="!loading && !error"
-      class="capture-btn"
-      :disabled="processing"
-      @click="getFaceEmbeddingFromBackend"
-      style="display: none;"
+      v-if="!showUrlInput"
+      class="go-btn"
+      :disabled="loading || error || !faceDetected || processing"
+      @click="handleGoButton"
     >
-      {{ processing ? 'Processing...' : 'Get Face Embedding' }}
+      {{ processing ? 'Processing...' : 'Go →' }}
     </button>
-    <div v-if="embedding" class="embedding-box">
-      <h3>Face Embedding:</h3>
-      <pre>{{ embedding }}</pre>
+    <!-- Face does NOT already exist message -->
+    <div v-if="showUrlInput" class="message-box">
+      New face detected. Please enter a URL to map to this face!
+    </div>
+    <!-- Face already exists message -->
+    <div v-if="faceExistsMessage" class="message-box error">
+      {{ faceExistsMessage }}
+    </div>
+    
+    <!-- URL input form -->
+    <div v-if="showUrlInput" class="url-input-container">
+      <div class="input-group">
+        <input
+          v-model="urlToMap"
+          type="url"
+          placeholder="URL to map to this face"
+          class="url-input"
+          :disabled="processing"
+        />
+        <button
+          class="submit-btn"
+          :disabled="processing || !urlToMap"
+          @click="handleSubmitUrl"
+        >
+          {{ processing ? 'Submitting...' : 'Submit' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
