@@ -56,6 +56,16 @@ async def face_embedding_get():
 @app.post("/store-face-embedding")
 def store_face_embedding(data: FaceEmbeddingData):
     try:
+        # Check if face already exists
+        existing_face = db.find_matching_face(data.face_embedding, threshold=0.6)
+        
+        if existing_face:
+            return {
+                "face_key": existing_face, 
+                "message": "Face already exists in database.. or am I wrong and bad? Let me kno.",
+                "already_exists": True
+            }
+        
         # Generate a unique key based on the face embedding hash
         import hashlib
         face_key = hashlib.md5(data.face_embedding.encode()).hexdigest()[:8]
@@ -63,7 +73,7 @@ def store_face_embedding(data: FaceEmbeddingData):
         # Store the face embedding
         db.insert_face_embedding(face_key, data.face_embedding)
         
-        return {"face_key": face_key, "message": "Face embedding stored successfully"}
+        return {"face_key": face_key, "message": "Face embedding stored successfully", "already_exists": False}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -83,6 +93,39 @@ def get_face_embedding(face_key: str):
             return {"face_key": face_key, "face_embedding": embedding}
         else:
             raise HTTPException(status_code=404, detail="Face key not found")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/check-face-exists")
+def check_face_exists(data: FaceEmbeddingData):
+    try:
+        # Check if face already exists
+        existing_face = db.find_matching_face(data.face_embedding, threshold=0.6)
+        
+        if existing_face:
+            return {
+                "exists": True,
+                "face_key": existing_face,
+                "message": "Face found in database"
+            }
+        else:
+            return {
+                "exists": False,
+                "message": "Face not found in database"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/get-face-similarities")
+def get_face_similarities(data: FaceEmbeddingData):
+    try:
+        # Get all similar faces with their similarity scores
+        similarities = db.get_face_similarity(data.face_embedding, threshold=0.3)
+        
+        return {
+            "similarities": similarities,
+            "total_matches": len(similarities)
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
