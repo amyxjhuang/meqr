@@ -1,6 +1,12 @@
 # MEQR - Face-Based URL Shortener
+My process: https://amyxjhuang.notion.site/MeQR-Find-My-Website-20c449fa8f6f80509b9dcda00ab93412?pvs=74 
 
-MEQR is a unique URL shortening service that uses face recognition technology to generate and access shortened URLs. Instead of traditional random strings, MEQR creates URLs based on your face embedding, making them both secure and memorable.
+
+
+<video src="https://github.com/user-attachments/assets/0bce7aac-14cc-4343-8804-c2b7d66fa64e" />
+
+
+MEQR creates URLs based on your face embedding
 
 ## 🚀 Features
 
