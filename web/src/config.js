@@ -1,11 +1,10 @@
 // Configuration for different environments
 const config = {
   development: {
-    backendUrl: 'http://127.0.0.1:5001/'
+    backendUrl: 'http://127.0.0.1:5001'
   },
   production: {
-    // Replace this with your actual deployed backend URL
-    backendUrl: 'https://your-backend-url.railway.app' // or .render.com
+    backendUrl: 'https://meqr-7md6u2wlj-amy-huangs-projects-acc0015b.vercel.app'
   }
 }
 
