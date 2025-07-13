@@ -1,23 +1,53 @@
-node_modules
-web/node_modules
-__pycache__
+# Frontend directories
+web/
+frontend/
+
+# Node modules and dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs and cache
+dist/
+build/
+.cache/
+**/.cache/
+
+# Git directory
+.git/
+
+# Development files
+*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large model files (if any are in root)
+*.bin
+*.model
+models/
+
+# Database files (if any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cache
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env
-pip-log.txt
-pip-delete-this-directory.txt
-.tox
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
-.DS_Store 
+env/
+venv/
+.venv/ 
